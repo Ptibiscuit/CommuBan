@@ -1,0 +1,25 @@
+name: CommuBan
+main: com.ptibiscuit.commuban.CommuBan
+version: 0.3
+description: Common Ban for more players.
+authors:
+- Ptibiscuit
+commands:
+ cban:
+  description: Bannit temporairement
+  usage: /cban [Player] [Minute:Hour:Day] [Reason]
+ dcban:
+  description: Bannit un joueur definitivement.
+  usage: /dcban [Player] [Reason]
+ cpardon:
+  description: Debannit un joueur
+  usage: /pardon [Player]
+ ccheck:
+  description: Montre les bans d'un joueur.
+  usage: /ccheck [Player]
+ csynchro:
+  description: Synchronise la liste des bannis ban.txt avec le plugin
+  usage: /csynchro
+ ckickserver:
+  description: Kick le player.
+  usage: /ckick <Player> <Raison ...>
