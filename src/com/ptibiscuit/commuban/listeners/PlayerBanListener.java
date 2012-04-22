@@ -3,20 +3,23 @@ package com.ptibiscuit.commuban.listeners;
 import java.net.MalformedURLException;
 
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
 
 import com.ptibiscuit.commuban.Ban;
 import com.ptibiscuit.commuban.CommuBan;
 import com.ptibiscuit.commuban.DataBan;
-import com.ptibiscuit.framework.PermissionHelper;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 
-public class PlayerBanListener extends PlayerListener {
+public class PlayerBanListener implements Listener {
 
+	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerLogin(PlayerLoginEvent e) {
+		CommuBan commuBan = CommuBan.getInstance();
 		try {
-			if (!CommuBan.getInstance().getDataBan().getMysql().checkConnection())
+			if (!commuBan.getDataBan().getMysql().checkConnection())
 			{
 				return;
 			}
@@ -31,25 +34,25 @@ public class PlayerBanListener extends PlayerListener {
 			e1.printStackTrace();
 		}
 		
-		CommuBan.getInstance().getDataBan().setActivated(e.getPlayer().getName(), System.currentTimeMillis());
+		commuBan.getDataBan().setActivated(e.getPlayer().getName(), System.currentTimeMillis());
 		
-		Ban b = CommuBan.getInstance().getDataBan().isBanned(e.getPlayer().getName(), System.currentTimeMillis());
+		Ban b = commuBan.getDataBan().isBanned(e.getPlayer().getName(), System.currentTimeMillis());
 		if (b != null)
 		{
-			if (PermissionHelper.has(e.getPlayer(), CommuBan.getInstance().getPrefixPermissions() + ".god", true))
+			if (commuBan.getPermissionHandler().has(e.getPlayer(), "god", true))
 				return;
 			
 			// Il est belle est bien banni !
 			e.setResult(Result.KICK_OTHER);
 			if (!b.isDefinitive())
 			{
-				e.setKickMessage(CommuBan.getInstance().getSentence("have_been_banned")
+				e.setKickMessage(commuBan.getSentence("have_been_banned")
 						.replace("+time", DataBan.getStringByTimeStamp(((b.getDuration() + b.getDate_activation()) - System.currentTimeMillis())/1000))
 						.replace("+reason", b.getReason()));
 			}
 			else
 			{
-				e.setKickMessage(CommuBan.getInstance().getSentence("have_been_defbanned").replace("+reason", b.getReason()));
+				e.setKickMessage(commuBan.getSentence("have_been_defbanned").replace("+reason", b.getReason()));
 			}
 		}
 		

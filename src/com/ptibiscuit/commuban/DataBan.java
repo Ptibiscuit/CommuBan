@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import com.ptibiscuit.framework.mysql.mysqlCore;
+import java.sql.PreparedStatement;
+import java.util.logging.Level;
 
 public class DataBan {
 	private mysqlCore mysql;
@@ -80,8 +82,13 @@ public class DataBan {
 	public boolean setActivated(String banned, long actualTime)
 	{
 		try {
-			mysql.updateQuery("UPDATE ba_bans SET BA_activated = 1, BA_date_activation = " + actualTime + " WHERE BA_banned = \"" + banned + "\" AND BA_activated = 0;");
+			PreparedStatement req = mysql.prepareStatement("UPDATE ba_bans SET BA_activated = 1, BA_date_activation = ? WHERE BA_banned = ? AND BA_activated = 0;");
+			req.setLong(1, actualTime);
+			req.setString(2, banned);
+			req.execute();
 			return true;
+		} catch (SQLException ex) {
+			Logger.getLogger(DataBan.class.getName()).log(Level.SEVERE, null, ex);
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -98,8 +105,14 @@ public class DataBan {
 	public boolean defbanPlayer(String banned, String reason, long date_begin)
 	{
 		try {
-			mysql.insertQuery("INSERT INTO ba_bans(BA_banned, BA_reason, BA_date_begin, BA_definitive) VALUES(\"" + banned + "\", \"" + reason + "\", " + date_begin + ", 1)");
+			PreparedStatement req = mysql.prepareStatement("INSERT INTO ba_bans(BA_banned, BA_reason, BA_date_begin, BA_definitive) VALUES(?, ?, ?, 1)");
+			req.setString(1, banned);
+			req.setString(2, reason);
+			req.setLong(3, date_begin);
+			req.execute();
 			return true;
+		} catch (SQLException ex) {
+			Logger.getLogger(DataBan.class.getName()).log(Level.SEVERE, null, ex);
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -116,7 +129,9 @@ public class DataBan {
 	public List<Ban> getPlayerBans(String banned)
 	{
 		try {
-			ResultSet rs = mysql.sqlQuery("SELECT * FROM ba_bans WHERE BA_banned = \"" + banned + "\";");
+			PreparedStatement req = mysql.prepareStatement("SELECT * FROM ba_bans WHERE BA_banned = ?;");
+			req.setString(1, banned);
+			ResultSet rs = req.executeQuery();
 			if (rs != null)
 			{
 				ArrayList<Ban> bans = new ArrayList<Ban>();
@@ -144,8 +159,15 @@ public class DataBan {
 	public boolean banPlayer(String banned, String reason, long date_begin, long duration)
 	{
 		try {
-			mysql.insertQuery("INSERT INTO ba_bans(BA_banned, BA_reason, BA_date_begin, BA_duration) VALUES(\"" + banned + "\", \"" + reason + "\", " + date_begin + ", " + duration + ");");
+			PreparedStatement req = mysql.prepareStatement("INSERT INTO ba_bans(BA_banned, BA_reason, BA_date_begin, BA_duration) VALUES(?, ?, ?, ?);");
+			req.setString(1, banned);
+			req.setString(2, reason);
+			req.setLong(3, date_begin);
+			req.setLong(4, duration);
+			req.execute();
 			return true;
+		} catch (SQLException ex) {
+			Logger.getLogger(DataBan.class.getName()).log(Level.SEVERE, null, ex);
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -163,8 +185,14 @@ public class DataBan {
 	public boolean kickPlayer(String banned, String reason, long date_begin)
 	{
 		try {
-			mysql.insertQuery("INSERT INTO ba_bans(BA_banned, BA_reason, BA_date_begin, BA_duration) VALUES(\"" + banned + "\", \"" + reason + "\", " + date_begin + ", 0);");
+			PreparedStatement req = mysql.prepareStatement("INSERT INTO ba_bans(BA_banned, BA_reason, BA_date_begin, BA_duration) VALUES(?, ?, ?, 0);");
+			req.setString(1, banned);
+			req.setString(2, reason);
+			req.setLong(3, date_begin);
+			req.execute();
 			return true;
+		} catch (SQLException ex) {
+			Logger.getLogger(DataBan.class.getName()).log(Level.SEVERE, null, ex);
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -182,8 +210,13 @@ public class DataBan {
 	public boolean debanPlayerFromDate(String player, long date)
 	{
 		try {
-			mysql.deleteQuery("UPDATE ba_bans SET BA_deleted = 1 WHERE BA_banned = \"" + player + "\" AND (BA_activated = 0 OR((BA_activated = 1 AND ((BA_definitive = 1) OR (BA_definitive = 0 AND BA_duration + BA_date_activation > " + date + ")))));");
+			PreparedStatement req = mysql.prepareStatement("UPDATE ba_bans SET BA_deleted = 1 WHERE BA_banned = ? AND (BA_activated = 0 OR((BA_activated = 1 AND ((BA_definitive = 1) OR (BA_definitive = 0 AND BA_duration + BA_date_activation > ?)))));");
+			req.setString(1, player);
+			req.setLong(2, date);
+			req.execute();
 			return true;
+		} catch (SQLException ex) {
+			Logger.getLogger(DataBan.class.getName()).log(Level.SEVERE, null, ex);
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -201,8 +234,10 @@ public class DataBan {
 	public Ban isBanned(String name, long actualTime)
 	{
 		try {
-			
-			ResultSet rs = mysql.sqlQuery("SELECT * FROM ba_bans WHERE BA_deleted = 0 AND BA_banned = \"" + name + "\" AND ((BA_definitive = 1) OR (BA_definitive = 0 AND BA_activated = 1 AND (BA_date_activation + BA_duration > " + actualTime + ")));");
+			PreparedStatement req = mysql.prepareStatement("SELECT * FROM ba_bans WHERE BA_deleted = 0 AND BA_banned = ? AND ((BA_definitive = 1) OR (BA_definitive = 0 AND BA_activated = 1 AND (BA_date_activation + BA_duration > ?)));");
+			req.setString(1, name);
+			req.setLong(2, actualTime);
+			ResultSet rs = req.executeQuery();
 			if (rs.next())
 			{
 				return new Ban(rs.getInt("BA_id"), rs.getString("BA_banned"), rs.getLong("BA_date_begin"), rs.getLong("BA_duration"), rs.getLong("BA_date_activation"), rs.getInt("BA_activated"), rs.getInt("BA_definitive"), rs.getString("BA_reason"), rs.getInt("BA_deleted"));

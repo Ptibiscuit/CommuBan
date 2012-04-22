@@ -1,25 +1,20 @@
 package com.ptibiscuit.commuban;
 
+import com.ptibiscuit.commuban.listeners.PlayerBanListener;
+import com.ptibiscuit.framework.JavaPluginEnhancer;
+import com.ptibiscuit.framework.PermissionHelper;
+import java.net.MalformedURLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
-
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event.Priority;
-import org.bukkit.event.Event.Type;
-import org.bukkit.util.config.Configuration;
-
-import com.ptibiscuit.commuban.listeners.PlayerBanListener;
-import com.ptibiscuit.framework.JavaPluginEnhancer;
-import com.ptibiscuit.framework.PermissionHelper;
-import com.ptibiscuit.framework.mysql.mysqlCore;
-import java.net.MalformedURLException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 public class CommuBan extends JavaPluginEnhancer {
 	
@@ -36,7 +31,7 @@ public class CommuBan extends JavaPluginEnhancer {
 	
 	@Override
 	public void onEnable() {
-		this.setup("CommuBan", ChatColor.GREEN + "[CommuBan]", "commuban", true);
+		this.setup(ChatColor.GREEN + "[CommuBan]", "commuban", true);
 
 		this.getMyLogger().startFrame();
 		this.getMyLogger().addInFrame("CommuBan by Ptibiscuit");
@@ -52,19 +47,18 @@ public class CommuBan extends JavaPluginEnhancer {
 			this.getMyLogger().addInFrame("Using default OP Permissions.");
 		}
 		this.getMyLogger().displayFrame(false);
-		if (!this.dataBan.init(Logger.getLogger("Minecraft"), "[CommuBan]", this.getConfiguration().getString("bdd.host"), this.getConfiguration().getString("bdd.database"), this.getConfiguration().getString("bdd.login"), this.getConfiguration().getString("bdd.password")))
+		if (!this.dataBan.init(Logger.getLogger("Minecraft"), "[CommuBan]", this.getConfig().getString("bdd.host"), this.getConfig().getString("bdd.database"), this.getConfig().getString("bdd.login"), this.getConfig().getString("bdd.password")))
 		{
 			return;
 		}
-		
-		this.getServer().getPluginManager().registerEvent(Type.PLAYER_LOGIN, pbl, Priority.Lowest, this);
+		this.getServer().getPluginManager().registerEvents(pbl, this);
 	}
 
 	public boolean canBanHim(String banner, String banned)
 	{
 		Player pBanner = this.getServer().getPlayer(banner);
 		//Player pBanned = this.getServer().getPlayer(banned);
-		if (!PermissionHelper.has(pBanner, this.prefixPermissions + ".ban", true))
+		if (!this.permissionHandler.has(pBanner, "ban", true))
 			return false;
 		return true;
 	}
@@ -120,36 +114,51 @@ public class CommuBan extends JavaPluginEnhancer {
 					reason += args[i] + " ";
 				}
 				reason = reason.trim() + " - " + sender.getName();
-				// On a notre temps, on va bannir notre joueur. Seulement timeAdd est en secondes, et pas en millisecondes !
-				this.dataBan.banPlayer(args[0], reason.trim(), System.currentTimeMillis(), timeAdd * 1000);
-				
-				this.displayMessage(this.getSentence("has_been_banned").replace("+pseudo", args[0]).replace("+time", (DataBan.getStringByTimeStamp(timeAdd)).trim()).replace("+reason", reason.trim()));
-				this.myLog.log(this.getSentence("has_been_banned").replace("+pseudo", args[0]).replace("+time", (DataBan.getStringByTimeStamp(timeAdd)).trim()).replace("+reason", reason.trim()));
-				Player pFoc = this.getServer().getPlayerExact(args[0]);
-				if (pFoc != null && !PermissionHelper.has(pFoc, this.prefixPermissions + ".god", true))
+				OfflinePlayer pFoc = this.getServer().getOfflinePlayer(args[0]);
+				if (pFoc != null)
 				{
-					this.dataBan.setActivated(args[0], System.currentTimeMillis());
-					pFoc.kickPlayer(this.getSentence("have_been_banned")
-							.replace("+time", (DataBan.getStringByTimeStamp(timeAdd)).trim())
-							.replace("+reason", reason.trim()));
-					this.sendPreMessage(sender, "player_kick");
+					// On a notre temps, on va bannir notre joueur. Seulement timeAdd est en secondes, et pas en millisecondes !
+					this.dataBan.banPlayer(pFoc.getName(), reason.trim(), System.currentTimeMillis(), timeAdd * 1000);
+
+					this.displayMessage(this.getSentence("has_been_banned").replace("+pseudo", pFoc.getName()).replace("+time", (DataBan.getStringByTimeStamp(timeAdd)).trim()).replace("+reason", reason.trim()));
+					this.myLog.log(this.getSentence("has_been_banned").replace("+pseudo", pFoc.getName()).replace("+time", (DataBan.getStringByTimeStamp(timeAdd)).trim()).replace("+reason", reason.trim()));
+
+					if (pFoc != null && pFoc.isOnline() && !this.permissionHandler.has(pFoc.getPlayer(), "god", true))
+					{
+						this.dataBan.setActivated(pFoc.getName(), System.currentTimeMillis());
+						pFoc.getPlayer().kickPlayer(this.getSentence("have_been_banned")
+								.replace("+time", (DataBan.getStringByTimeStamp(timeAdd)).trim())
+								.replace("+reason", reason.trim()));
+						this.sendPreMessage(sender, "player_kick");
+					}
+				}
+				else
+				{
+					this.sendPreMessage(sender, "no_player");
 				}
 			}
 			else if (label.equalsIgnoreCase("cpardon"))
 			{
-				if (!PermissionHelper.has(sender, this.prefixPermissions + ".pardon", true))
+				if (!this.permissionHandler.has(sender, "pardon", true))
 				{
 					this.sendPreMessage(sender, "cant_command");
 					return true;
 				}
-				
-				this.dataBan.debanPlayerFromDate(args[0], System.currentTimeMillis());
-				this.sendMessage(sender, this.getSentence("deban_player").replace("+pseudo", args[0]));
-				this.myLog.log(this.getSentence("deban_player").replace("+pseudo", args[0]));
+				OfflinePlayer pFoc = this.getServer().getOfflinePlayer(args[0]);
+				if (pFoc != null)
+				{
+					this.dataBan.debanPlayerFromDate(pFoc.getName(), System.currentTimeMillis());
+					this.sendMessage(sender, this.getSentence("deban_player").replace("+pseudo", pFoc.getName()));
+					this.myLog.log(this.getSentence("deban_player").replace("+pseudo", pFoc.getName()));
+				}
+				else
+				{
+					this.sendPreMessage(sender, "no_player");
+				}
 			}
 			else if (label.equalsIgnoreCase("ckickserver"))
 			{
-				if (!PermissionHelper.has(sender, this.prefixPermissions + ".kick", true))
+				if (!this.permissionHandler.has(sender, "kick", true))
 				{
 					this.sendPreMessage(sender, "cant_command");
 					return true;
@@ -158,7 +167,7 @@ public class CommuBan extends JavaPluginEnhancer {
 				Player pFoc = this.getServer().getPlayer(args[0]);
 				if (pFoc != null)
 				{
-					if (PermissionHelper.has(pFoc, this.prefixPermissions + ".god", true))
+					if (this.permissionHandler.has(pFoc, "god", true))
 					{
 						this.sendPreMessage(sender, "cant_command");
 						return true;
@@ -194,59 +203,73 @@ public class CommuBan extends JavaPluginEnhancer {
 					reason += args[i] + " ";
 				}
 				reason = reason.trim() + " - " + sender.getName();
-				// On a notre temps, on va bannir notre joueur. Seulement timeAdd est en secondes, et pas en millisecondes !
-				this.dataBan.defbanPlayer(args[0], reason.trim(), System.currentTimeMillis());
-				
-				this.displayMessage(this.getSentence("has_been_defbanned").replace("+pseudo", args[0]));
-				this.myLog.log(this.getSentence("has_been_defbanned").replace("+pseudo", args[0]));
-				Player pFoc = this.getServer().getPlayerExact(args[0]);
-				if (pFoc != null && !PermissionHelper.has(pFoc, this.prefixPermissions + ".god", true))
+				OfflinePlayer pFoc = this.getServer().getOfflinePlayer(args[0]);
+				if (pFoc != null)
 				{
-					pFoc.kickPlayer(this.getSentence("have_been_defbanned").replace("+reason", reason.trim()));
-					this.dataBan.setActivated(args[0], System.currentTimeMillis());
-					this.sendPreMessage(sender, "player_kick");
-				}
-			}
-			else if (label.equalsIgnoreCase("ccheck"))
-			{
-				if (!PermissionHelper.has(sender, this.prefixPermissions + ".check", true))
-				{
-					this.sendPreMessage(sender, "cant_command");
-					return true;
-				}
-				
-				List<Ban> bans = this.dataBan.getPlayerBans(args[0]);
-				if (!bans.isEmpty())
-				{
-					this.sendPreMessage(sender, "list_bans");
-					for (Ban b : bans)
+					// On a notre temps, on va bannir notre joueur. Seulement timeAdd est en secondes, et pas en millisecondes !
+					this.dataBan.defbanPlayer(args[0], reason.trim(), System.currentTimeMillis());
+
+					this.displayMessage(this.getSentence("has_been_defbanned").replace("+pseudo", pFoc.getName()));
+					this.myLog.log(this.getSentence("has_been_defbanned").replace("+pseudo", pFoc.getName()));
+					if (pFoc.isOnline() && !this.permissionHandler.has(pFoc.getPlayer(), "god", true))
 					{
-						// On produit une date lisible:
-						SimpleDateFormat form = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-						String dateFormated = ChatColor.GOLD + "(" + form.format(new Date(b.getDate_begin())) + ")" + ChatColor.WHITE;
-						
-						// On regarde si il est deleté:
-						String deleteSymbol = (b.isDeleted()) ? ChatColor.DARK_GREEN + "[Revoque]" + ChatColor.WHITE: "";
-						if (b.getDuration() > 0)
-							this.sendMessage(sender, deleteSymbol + dateFormated + dataBan.getStringByTimeStamp(b.getDuration()/1000) + ": " + b.getReason());
-						else if (b.getDuration() == 0)
-						{
-							if (b.isDefinitive())
-								this.sendMessage(sender, deleteSymbol + dateFormated + this.getSentence("forever") + ": " + b.getReason());
-							else
-								this.sendMessage(sender, deleteSymbol + dateFormated + this.getSentence("kick") + ": " + b.getReason());
-						}
+						pFoc.getPlayer().kickPlayer(this.getSentence("have_been_defbanned").replace("+reason", reason.trim()));
+						this.dataBan.setActivated(args[0], System.currentTimeMillis());
+						this.sendPreMessage(sender, "player_kick");
 					}
 				}
 				else
 				{
-					this.sendPreMessage(sender, "no_past");
+					this.sendPreMessage(sender, "no_player");
+				}
+			}
+			else if (label.equalsIgnoreCase("ccheck"))
+			{
+				if (!this.permissionHandler.has(sender, "check", true))
+				{
+					this.sendPreMessage(sender, "cant_command");
+					return true;
+				}
+				OfflinePlayer pFoc = this.getServer().getOfflinePlayer(args[0]);
+				if (pFoc != null)
+				{
+					List<Ban> bans = this.dataBan.getPlayerBans(args[0]);
+					if (!bans.isEmpty())
+					{
+						this.sendPreMessage(sender, "list_bans");
+						for (Ban b : bans)
+						{
+							// On produit une date lisible:
+							SimpleDateFormat form = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+							String dateFormated = ChatColor.GOLD + "(" + form.format(new Date(b.getDate_begin())) + ")" + ChatColor.WHITE;
+
+							// On regarde si il est deleté:
+							String deleteSymbol = (b.isDeleted()) ? ChatColor.DARK_GREEN + "[Revoque]" + ChatColor.WHITE: "";
+							if (b.getDuration() > 0)
+								this.sendMessage(sender, deleteSymbol + dateFormated + dataBan.getStringByTimeStamp(b.getDuration()/1000) + ": " + b.getReason());
+							else if (b.getDuration() == 0)
+							{
+								if (b.isDefinitive())
+									this.sendMessage(sender, deleteSymbol + dateFormated + this.getSentence("forever") + ": " + b.getReason());
+								else
+									this.sendMessage(sender, deleteSymbol + dateFormated + this.getSentence("kick") + ": " + b.getReason());
+							}
+						}
+					}
+					else
+					{
+						this.sendPreMessage(sender, "no_past");
+					}
+				}
+				else
+				{
+					this.sendPreMessage(sender, "no_player");
 				}
 				
 			}
 			else if (label.equalsIgnoreCase("csynchro"))
 			{
-				if (!PermissionHelper.has(sender, this.prefixPermissions + ".synchro", true))
+				if (!this.permissionHandler.has(sender, "synchro", true))
 				{
 					this.sendPreMessage(sender, "cant_command");
 					return true;
@@ -286,17 +309,17 @@ public class CommuBan extends JavaPluginEnhancer {
 	{
 		for (Player p : this.getServer().getOnlinePlayers())
 		{
-			if (PermissionHelper.has(p, this.prefixPermissions + ".sawer", false))
+			if (this.permissionHandler.has(p, "sawer", false))
 				this.sendMessage(p, m);
 		}
 	}
 	
 	@Override
-	public void onConfigurationDefault(Configuration c) {
-		c.setProperty("bdd.host", "");
-		c.setProperty("bdd.login", "");
-		c.setProperty("bdd.password", "");
-		c.setProperty("bdd.database", "");
+	public void onConfigurationDefault(FileConfiguration c) {
+		c.set("bdd.host", "");
+		c.set("bdd.login", "");
+		c.set("bdd.password", "");
+		c.set("bdd.database", "");
 	}
 
 	@Override
@@ -304,11 +327,11 @@ public class CommuBan extends JavaPluginEnhancer {
 		p.setProperty("cant_command", "Vous ne pouvez pas utiliser cette commande.");
 		p.setProperty("connection_off", "La connection avec la Bdd est coupée !");
 		p.setProperty("has_been_banned", "+pseudo" + ChatColor.RED + " a été banni pour +time car " + ChatColor.YELLOW + "+reason" + ChatColor.WHITE + ".");
-		p.setProperty("has_been_defbanned", "+pseudo" + ChatColor.RED + " a été banni d�finitivement.");
+		p.setProperty("has_been_defbanned", "+pseudo" + ChatColor.RED + " a été banni définitivement.");
 		p.setProperty("deban_player", "+pseudo a été débanni.");
 		p.setProperty("have_been_banned", "Vous avez été banni pour +time, raison: +reason");
 		p.setProperty("have_been_kicked", "+pseudo" + ChatColor.RED + " a été kické car" + ChatColor.YELLOW + " +reason." + ChatColor.WHITE + "");
-		p.setProperty("have_been_defbanned", "Vous avez été banni d�finitivement, raison: +reason");
+		p.setProperty("have_been_defbanned", "Vous avez été banni définitivement, raison: +reason");
 		p.setProperty("player_kick", "Le joueur a été kické !");
 		p.setProperty("no_player", "Ce joueur n'existe pas.");
 		p.setProperty("bad_use", "Mauvaise utilisation de la commande.");
