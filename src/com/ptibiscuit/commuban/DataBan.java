@@ -60,6 +60,18 @@ public class DataBan {
 			mysql.initialize();
 			if (mysql.checkConnection())
 			{
+				// On initialise les tables
+				mysql.createTable("CREATE TABLE IF NOT EXISTS `ba_bans` ("
+						  + "`BA_id` int(11) NOT NULL AUTO_INCREMENT,"
+						  + "`BA_banned` varchar(255) NOT NULL,"
+						  + "`BA_reason` text NOT NULL,"
+						  + "`BA_date_begin` bigint(20) NOT NULL DEFAULT '0',"
+						  + "`BA_duration` bigint(20) NOT NULL DEFAULT '0',"
+						  + "`BA_activated` int(11) NOT NULL DEFAULT '0',"
+						  + "`BA_date_activation` bigint(20) NOT NULL DEFAULT '0',"
+						  + "`BA_definitive` int(11) NOT NULL DEFAULT '0',"
+						  + "`BA_deleted` int(11) NOT NULL DEFAULT '0',"
+						  + "PRIMARY KEY (`BA_id`)) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
 				return true;
 			}
 			else

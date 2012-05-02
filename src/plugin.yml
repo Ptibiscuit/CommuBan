@@ -2,6 +2,7 @@ name: CommuBan
 main: com.ptibiscuit.commuban.CommuBan
 version: 0.5
 description: Common Ban for more players.
+depend: [PluginsBaker]
 authors:
 - Ptibiscuit
 commands:
